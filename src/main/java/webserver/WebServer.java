@@ -3,8 +3,8 @@ package webserver;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;//interface
+import org.slf4j.LoggerFactory;//class
 
 public class WebServer {
     private static final Logger log = LoggerFactory.getLogger(WebServer.class);
@@ -19,16 +19,18 @@ public class WebServer {
         }
 
         // 서버소켓을 생성한다. 웹서버는 기본적으로 8080번 포트를 사용한다.
-
         try (ServerSocket listenSocket = new ServerSocket(port)) {
+            //동적 메시지 구현
+            //{} -> 로그 레벨 참조 먼저 하고, 필요 하면 그때 port 를 찾는다.//(여기서 시간절약)
             log.info("Web Application Server started {} port.", port);
+            //log.info("Web Application Server started "+port+ "port.");//로그 레벨 참조 안하고 무조건 돌아가 버린다.(시간 낭비)
 
             // 클라이언트가 연결될때까지 대기한다.
             Socket connection;
             while ((connection = listenSocket.accept()) != null) {
                 RequestHandler requestHandler = new RequestHandler(connection);
                 requestHandler.start();
-                log.info("client connected at {} port.", port);
+                log.info("client connected at {} port.", port);//inseok
             }
         }
     }
