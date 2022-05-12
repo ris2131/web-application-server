@@ -25,43 +25,39 @@ public class RequestHandler extends Thread {
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
             //요구사항1: request로 index.html 이 들어오면 bufferedReader 랑 fileReader 통해서 뿌려 줄 예정.
+            //dos 는 뿌려줄때 최종적으로 저기 담는다.
             DataOutputStream dos = new DataOutputStream(out);
             //input 만들기
-            BufferedReader br = new BufferedReader(new InputStreamReader(in));
-            String input = br.readLine();// 이 밑으로도 br.readLine 이 먹히고 무슨 정보가 있음.
-            log.debug("run - bufferedReader.readline() : {}", input);//input example: GET /index.html HTTP/1.1
-
-            //현재 작업경로 체크
-            Path currentPath = Paths.get("");
-            String path = currentPath.toAbsolutePath().toString();
-            log.debug("run - default path : {}", path);
-
-            //file 경로 만들기
-            String[] inSplit =  input.split(" ");
-            File file = new File(path+"/webapp"+inSplit[1]);
-            log.debug("run - file path : {}", path+"/webapp"+inSplit[1]);
-
-            //byte[] body = "Hello World".getBytes();
-            byte[] body = Files.readAllBytes(file.toPath());
-
-            response200Header(dos, body.length);
-            responseBody(dos, body);
-
-            br.close();
-            //현재 작업경로 체크
-            /*
-            Path currentPath = Paths.get("");
-            String path = currentPath.toAbsolutePath().toString();
-            log.debug("현재 작업 경로: {}", path);
-            */
+            BufferedReader br = new BufferedReader(new InputStreamReader(in,"UTF-8"));//utf-8 설정 여기서.
+            String line = br.readLine();// request 가 이 밑으로도 br.readLine 이 먹히고 무슨 정보가 있음.
+            if(line==null){//없으면 무한루프 돈대.
+                log.debug("run - line null");
+                return;
+            }
+            log.debug("run - requestLine : {}", line);//requestLine example: GET /index.html HTTP/1.1
             
-            //기존 코드
-            /*
-            DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = "Hello World".getBytes();
+
+            //요청 라인 통해 위치 만들기
+            String[] tokens =  line.split(" ");
+            File file = new File("./webapp"+tokens[1]);
+            log.debug("run - file path : {}", "./webapp"+tokens[1]);
+            
+            //requestHeader 모두 빼기(request body 받을수있도록)
+            while( !"".equals(line) ){
+                line = br.readLine();
+                log.debug("run - requestHeader : {}",line);
+            }
+            
+            //body 내용 만들기.
+            byte[] body = Files.readAllBytes(file.toPath());
+            
+            //body header 만들어서 dos 에 담기
             response200Header(dos, body.length);
+            //body 내용 dos 에 담기
             responseBody(dos, body);
-            */
+
+            //br.close();
+            
         } catch (IOException e) {
             log.error(e.getMessage());
         }
