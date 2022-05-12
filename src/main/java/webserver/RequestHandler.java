@@ -49,16 +49,23 @@ public class RequestHandler extends Thread {
             File file = new File("./webapp"+tokens[1]);
             log.debug("run - file path : {}", "./webapp"+tokens[1]);
 
-            //requestHeader 모두 빼기(request body 받을수있도록)
+            //requestHeader 만들어 주기
+            Map<String, String> headerMap = new HashMap<>();
             int ContentLength=0;
-            while( !"".equals(line) ){
+            while(true){ //!"".equals(line)
                 line = br.readLine();
-                if(line.startsWith("Content-Length")){
-                    ContentLength = Integer.parseInt(line.split(" ")[1]);
+                if("".equals(line)) break;
+
+                HttpRequestUtils.Pair pair = HttpRequestUtils.parseHeader(line);
+                headerMap.put(pair.getKey(), pair.getValue());
+
+                if(headerMap.containsKey("Content-Length")){
+                    ContentLength = Integer.parseInt(headerMap.get("Content-Length").trim());
                     log.debug("ContentLength: {}",ContentLength);
                 }
                 log.debug("run - requestHeader : {}",line);
             }
+
 
             String url = tokens[1];
             String requestPath = url;
