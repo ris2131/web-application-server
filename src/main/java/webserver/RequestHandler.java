@@ -30,8 +30,6 @@ public class RequestHandler extends Thread {
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
 
-            //dos 는 뿌려줄때 최종적으로 저기 담는다.
-            DataOutputStream dos = new DataOutputStream(out);
             //input 만들기
             BufferedReader br = new BufferedReader(new InputStreamReader(in,"UTF-8"));//utf-8 설정 여기서.
             String line = br.readLine();// request 가 이 밑으로도 br.readLine 이 먹히고 무슨 정보가 있음.
@@ -55,7 +53,6 @@ public class RequestHandler extends Thread {
 
                 if(headerMap.containsKey("Content-Length")){
                     ContentLength = Integer.parseInt(headerMap.get("Content-Length").trim());
-                    log.debug("ContentLength: {}",ContentLength);
                 }
                 log.debug("run - requestHeader : {}",line);
             }
@@ -73,21 +70,23 @@ public class RequestHandler extends Thread {
             }
 
             //requestPath 에 따라 행동 변화
+            String requestBody = "";
+            DataOutputStream dos = new DataOutputStream(out);//dos 는 뿌려줄때 최종적으로 저기 담는다.
             switch(requestPath){
                 case "/user/create":
                     if("GET".equals(tokens[0])){
                         queryString = HttpRequestUtils.parseQueryString(params);
                     }
                     else if("POST".equals(tokens[0])){
-                        params = IOUtils.readData(br,ContentLength);
-                        log.debug("params : {}",params);
-                        queryString = HttpRequestUtils.parseQueryString(params);
+                        requestBody = IOUtils.readData(br,ContentLength);
+                        log.debug("params : {}",requestBody);
+                        queryString = HttpRequestUtils.parseQueryString(requestBody);
                     }
                     User user = new User(queryString.get("userId"),queryString.get("password"),queryString.get("name"),queryString.get("email"));
-                    log.debug("User : {}",user.toString());
+
                     //작성자가 만든 저장 하는 api
                     DataBase.addUser(user);
-
+                    log.debug("User : {} , DataBaseSize : {}",user.toString(),DataBase.findAll().size());
                     //요구사항 3.3 어디로 보내줄지
                     //body 에 담아서 보내야 할듯? 땡!
                     //header 내용 dos에 담기(body 내용을 따로 담을 필요도 없네)
@@ -95,14 +94,31 @@ public class RequestHandler extends Thread {
 
                     break;
 
+                /*
+                * 로그인 하기
+                * 로그인 성공하면 /index.html 이동, 로그인 실패하면 /user/login_failed.html 로 이동
+                * post 방식
+                * */
+                case "/user/login":
+                    //POST : read body
+                    requestBody = IOUtils.readData(br,ContentLength);
+                    log.debug("/user/login - requestbody : {}",requestBody);
+                    queryString = HttpRequestUtils.parseQueryString(requestBody);
+
+                    User tempUser = DataBase.findUserById(queryString.get("userId"));//이렇게 넘겨 받는게 솔직히 엄청 위험해 보이긴 함..
+                    String redirectUrl = "/user/login_failed.html";
+                    //login 성공시 login.html
+                    if( tempUser != null && queryString.get("password").equals(tempUser.getPassword()) ){//있고비번 같으면
+                        redirectUrl="/index.html";
+                        response302HeaderWithLoginSuccessHeader(dos,redirectUrl);
+                    } else{
+                        redirectUrl = "/user/login_failed.html";
+                        responseResource(out,redirectUrl);//200
+                    }
+                    break;
+
                 default:
-                    //body 내용 만들기.
-                    File file = new File("./webapp"+requestPath);
-                    byte[] body = Files.readAllBytes(file.toPath());
-                    //body header 만들어서 dos 에 담기
-                    response200Header(dos, body.length);
-                    //body 내용 dos 에 담기
-                    responseBody(dos, body);
+                    responseResource(out,requestPath);
                     break;
             }
             
@@ -110,6 +126,7 @@ public class RequestHandler extends Thread {
             log.error(e.getMessage());
         }
     }
+
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
         try {
@@ -122,14 +139,26 @@ public class RequestHandler extends Thread {
             log.error(e.getMessage());
         }
     }
+
     //HTTP 응답상태 코드 302
     //"Temporally moved" 상태!
     //요청된 리소스가 임시적으로 이동페이지로 이동했다는 뜻.
     //http status 마다 원하는 정보가 다르네!
     private void response302Header(DataOutputStream dos , String url ){//length 는 필요 없나봐
         try{
-            dos.writeBytes("HTTP/1.1 302 OK \r\n");
+            dos.writeBytes("HTTP/1.1 302 REDIRECT \r\n");
             dos.writeBytes("Location: " + url + "\r\n");//location을 추가 해주면, url 을 변경 해주네. "localhost:8080/index.html" 이 다시 실행 되는거지?(바로 ./webapp/index.html 을 찾는건 아닐거잖아?)
+            dos.writeBytes("\r\n");
+            log.debug("HTTP REQUEST [302] : success");
+        }catch(IOException e){//이건 왜 쓰는거?
+            log.error(e.getMessage());
+        }
+    }
+    private void response302HeaderWithLoginSuccessHeader(DataOutputStream dos, String url) {
+        try{
+            dos.writeBytes("HTTP/1.1 302 REDIRECT \r\n");
+            dos.writeBytes("Location: " + url + "\r\n");//location을 추가 해주면, url 을 변경 해주네. "localhost:8080/index.html" 이 다시 실행 되는거지?(바로 ./webapp/index.html 을 찾는건 아닐거잖아?)
+            dos.writeBytes("Set-cookie: logined=true \r\n");
             dos.writeBytes("\r\n");
             log.debug("HTTP REQUEST [302] : success");
         }catch(IOException e){//이건 왜 쓰는거?
@@ -143,5 +172,12 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+    //url resource 를 띄우는
+    private void responseResource(OutputStream out, String url) throws IOException {
+        DataOutputStream dos = new DataOutputStream(out);
+        byte[] body = Files.readAllBytes(new File("./webapp"+url).toPath());
+        response200Header(dos,body.length);
+        responseBody(dos,body);
     }
 }
