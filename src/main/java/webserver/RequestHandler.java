@@ -27,11 +27,9 @@ public class RequestHandler extends Thread {
     public void run() {
         log.debug("New Client Connect! Connected IP : {}, Port : {}", connection.getInetAddress(),
                 connection.getPort());
-
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
-            //요구사항1: request로 index.html 이 들어오면 bufferedReader 랑 fileReader 통해서 뿌려 줄 예정.
-            //요구사항2: GET 을 뒤에 파라미터 떼 오는거.
+
             //dos 는 뿌려줄때 최종적으로 저기 담는다.
             DataOutputStream dos = new DataOutputStream(out);
             //input 만들기
@@ -42,13 +40,9 @@ public class RequestHandler extends Thread {
                 return;
             }
             log.debug("run - requestLine : {}", line);//requestLine example: GET /index.html HTTP/1.1
-            
 
             //요청 라인 통해 위치 만들기
             String[] tokens =  line.split(" ");
-            File file = new File("./webapp"+tokens[1]);
-            log.debug("run - file path : {}", "./webapp"+tokens[1]);
-
             //requestHeader 만들어 주기
             Map<String, String> headerMap = new HashMap<>();
             int ContentLength=0;
@@ -66,7 +60,6 @@ public class RequestHandler extends Thread {
                 log.debug("run - requestHeader : {}",line);
             }
 
-
             String url = tokens[1];
             String requestPath = url;
             String params =null;
@@ -79,6 +72,7 @@ public class RequestHandler extends Thread {
                 log.debug("run - params      : {}", params);
             }
 
+            //requestPath 에 따라 행동 변화
             switch(requestPath){
                 case "/user/create":
                     if("GET".equals(tokens[0])){
@@ -91,11 +85,19 @@ public class RequestHandler extends Thread {
                     }
                     User user = new User(queryString.get("userId"),queryString.get("password"),queryString.get("name"),queryString.get("email"));
                     log.debug("User : {}",user.toString());
+                    //작성자가 만든 저장 하는 api
                     DataBase.addUser(user);
+
+                    //요구사항 3.3 어디로 보내줄지
+                    //body 에 담아서 보내야 할듯? 땡!
+                    //header 내용 dos에 담기(body 내용을 따로 담을 필요도 없네)
+                    response302Header(dos,"/index.html");
+
                     break;
 
                 default:
                     //body 내용 만들기.
+                    File file = new File("./webapp"+requestPath);
                     byte[] body = Files.readAllBytes(file.toPath());
                     //body header 만들어서 dos 에 담기
                     response200Header(dos, body.length);
@@ -103,8 +105,6 @@ public class RequestHandler extends Thread {
                     responseBody(dos, body);
                     break;
             }
-
-
             
         } catch (IOException e) {
             log.error(e.getMessage());
@@ -117,11 +117,25 @@ public class RequestHandler extends Thread {
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
             dos.writeBytes("\r\n");
+
         } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
-
+    //HTTP 응답상태 코드 302
+    //"Temporally moved" 상태!
+    //요청된 리소스가 임시적으로 이동페이지로 이동했다는 뜻.
+    //http status 마다 원하는 정보가 다르네!
+    private void response302Header(DataOutputStream dos , String url ){//length 는 필요 없나봐
+        try{
+            dos.writeBytes("HTTP/1.1 302 OK \r\n");
+            dos.writeBytes("Location: " + url + "\r\n");//location을 추가 해주면, url 을 변경 해주네. "localhost:8080/index.html" 이 다시 실행 되는거지?(바로 ./webapp/index.html 을 찾는건 아닐거잖아?)
+            dos.writeBytes("\r\n");
+            log.debug("HTTP REQUEST [302] : success");
+        }catch(IOException e){//이건 왜 쓰는거?
+            log.error(e.getMessage());
+        }
+    }
     private void responseBody(DataOutputStream dos, byte[] body) {
         try {
             dos.write(body, 0, body.length);
