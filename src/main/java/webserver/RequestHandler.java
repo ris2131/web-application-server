@@ -2,10 +2,13 @@ package webserver;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import db.DataBase;
@@ -43,6 +46,7 @@ public class RequestHandler extends Thread {
             String[] tokens =  line.split(" ");
             //requestHeader 만들어 주기
             Map<String, String> headerMap = new HashMap<>();
+            Map<String,String> cookieMap = new HashMap<>();//쿠키 여러개가 있을수 있어서 Map 으로 구성, ';' 로 떼는 Api 이용.
             int ContentLength=0;
             while(true){ //!"".equals(line)
                 line = br.readLine();
@@ -50,11 +54,14 @@ public class RequestHandler extends Thread {
 
                 HttpRequestUtils.Pair pair = HttpRequestUtils.parseHeader(line);
                 headerMap.put(pair.getKey(), pair.getValue());
-
+                log.debug("run - requestHeader : {}",line);
                 if(headerMap.containsKey("Content-Length")){
                     ContentLength = Integer.parseInt(headerMap.get("Content-Length").trim());
                 }
-                log.debug("run - requestHeader : {}",line);
+                //cookie 가 header에 있으면 parseCookie 해서 넣어주기.
+                if(headerMap.containsKey("Cookie")){
+                    cookieMap = HttpRequestUtils.parseCookies(headerMap.get("Cookie"));
+                }
             }
 
             String url = tokens[1];
@@ -116,7 +123,43 @@ public class RequestHandler extends Thread {
                         responseResource(out,redirectUrl);//200
                     }
                     break;
+                //요구사항 6 : 사용자 목록 출력
+                case "/user/list":
+                    String logined="false";//쿠키 자체가 없을수도 있어서 그떄도 false 처리 해야해서 이렇게 했음.
+                    if(cookieMap.containsKey("logined")){
+                        logined=cookieMap.get("logined");
+                    }
+                    if("true".equals(logined)){
+                        redirectUrl = "/user/list";//스위치문 지역변수 헷갈리네
+                        Collection<User> userList = DataBase.findAll();
 
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("<table border='1'>");
+                        sb.append("<th>id</th>");
+                        sb.append("<th>pw</th>");
+                        sb.append("<th>name</th>");
+                        sb.append("<th>email</th>");
+                        //
+                        for(User u : userList) {
+                            sb.append("<tr>");
+                            sb.append("<td>"+u.getUserId()+"</td>");
+                            sb.append("<td>"+u.getPassword()+"</td>");
+                            sb.append("<td>"+u.getName()+"</td>");
+                            sb.append("<td>"+u.getEmail()+"</td>");
+                            sb.append("</tr>");
+                        }
+                        //
+                        sb.append("</table>");
+
+                        byte[] body = sb.toString().getBytes(StandardCharsets.UTF_8);
+                        response200Header(dos,body.length);
+                        responseBody(dos,body);
+                        //responseResource(out,requestPath);
+                    }else{
+                        redirectUrl = "/index.html";
+                        response302Header(dos,redirectUrl);
+                    }
+                    break;
                 default:
                     responseResource(out,requestPath);
                     break;
@@ -157,8 +200,8 @@ public class RequestHandler extends Thread {
     private void response302HeaderWithLoginSuccessHeader(DataOutputStream dos, String url) {
         try{
             dos.writeBytes("HTTP/1.1 302 REDIRECT \r\n");
-            dos.writeBytes("Location: " + url + "\r\n");//location을 추가 해주면, url 을 변경 해주네. "localhost:8080/index.html" 이 다시 실행 되는거지?(바로 ./webapp/index.html 을 찾는건 아닐거잖아?)
             dos.writeBytes("Set-cookie: logined=true \r\n");
+            dos.writeBytes("Location: " + url + "\r\n");//location을 추가 해주면, url 을 변경 해주네. "localhost:8080/index.html" 이 다시 실행 되는거지?(바로 ./webapp/index.html 을 찾는건 아닐거잖아?)
             dos.writeBytes("\r\n");
             log.debug("HTTP REQUEST [302] : success");
         }catch(IOException e){//이건 왜 쓰는거?
