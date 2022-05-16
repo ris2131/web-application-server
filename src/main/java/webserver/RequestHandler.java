@@ -31,6 +31,7 @@ public class RequestHandler extends Thread {
                 connection.getPort());
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
+            //HttpRequest httpRequest = new HttpRequest(in);
 
             //input 만들기
             BufferedReader br = new BufferedReader(new InputStreamReader(in,"UTF-8"));//utf-8 설정 여기서.
@@ -93,7 +94,6 @@ public class RequestHandler extends Thread {
             else{
                 DataOutputStream dos = new DataOutputStream(out);//dos 는 뿌려줄때 최종적으로 저기 담는다.
                 switch(requestPath){
-
                     case "/user/create":
                         if("GET".equals(tokens[0])){
                             queryString = HttpRequestUtils.parseQueryString(params);
