@@ -31,88 +31,33 @@ public class RequestHandler extends Thread {
                 connection.getPort());
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
-            //HttpRequest httpRequest = new HttpRequest(in);
+            HttpRequest httpRequest = new HttpRequest(in);
 
             //input 만들기
             BufferedReader br = new BufferedReader(new InputStreamReader(in,"UTF-8"));//utf-8 설정 여기서.
-            String line = br.readLine();// request 가 이 밑으로도 br.readLine 이 먹히고 무슨 정보가 있음.
-            if(line==null){//없으면 무한루프 돈대.
-                log.debug("run - line null");
-                return;
-            }
-            log.debug("run - requestLine : {}", line);//requestLine example: GET /index.html HTTP/1.1
-
-            //요청 라인 통해 위치 만들기
-            String[] tokens =  line.split(" ");
-            //requestHeader 만들어 주기
-            Map<String, String> headerMap = new HashMap<>();
-            Map<String,String> cookieMap = new HashMap<>();//쿠키 여러개가 있을수 있어서 Map 으로 구성, ';' 로 떼는 Api 이용.
-            int ContentLength=0;
-            String[] accept;
-
-            while(true){ //!"".equals(line)
-                line = br.readLine();
-                if("".equals(line)) break;
-
-                HttpRequestUtils.Pair pair = HttpRequestUtils.parseHeader(line);
-                headerMap.put(pair.getKey(), pair.getValue());
-                log.debug("run - requestHeader : {}",line);
-                if(headerMap.containsKey("Content-Length")){
-                    ContentLength = Integer.parseInt(headerMap.get("Content-Length").trim());
-                }
-                //cookie 가 header에 있으면 parseCookie 해서 넣어주기.
-                if(headerMap.containsKey("Cookie")){
-                    cookieMap = HttpRequestUtils.parseCookies(headerMap.get("Cookie"));
-                }
-                if(headerMap.containsKey("Accept")){
-                    accept = headerMap.get("Accept").split(",");
-                }
-            }
-
-            String url = tokens[1];
-            String requestPath = url;
-            String params =null;
-            Map<String,String> queryString = new HashMap<>();
-
-            if(url.contains("?")){
-                requestPath = url.substring(0,url.indexOf("?"));
-                params = url.substring(url.indexOf("?")+1);
-            }
-            log.debug("run - requestPath : {}", requestPath);
-            log.debug("run - params      : {}", params);
-
             //requestPath 에 따라 행동 변화
-            String requestBody = "";
-
+            Map<String,String> cookieMap =null;//쿠키 여러개가 있을수 있어서 Map 으로 구성, ';' 로 떼는 Api 이용.
+            if(httpRequest.getHeader("Cookie" ) != null ){
+                cookieMap = HttpRequestUtils.parseCookies(httpRequest.getHeader("Cookie"));
+            }
             //requestPath 확장자 에 따라
-            if(requestPath.endsWith(".css")){
+            if(httpRequest.getPath().endsWith(".css")){
                 DataOutputStream dos = new DataOutputStream(out);//dos 는 뿌려줄때 최종적으로 저기 담는다.
-                byte[] body = Files.readAllBytes(new File("./webapp"+requestPath).toPath());
+                byte[] body = Files.readAllBytes(new File("./webapp"+httpRequest.getPath()).toPath());
                 response200CssHeader(dos,body.length);
                 responseBody(dos,body);
             }
             else{
                 DataOutputStream dos = new DataOutputStream(out);//dos 는 뿌려줄때 최종적으로 저기 담는다.
-                switch(requestPath){
+                switch(httpRequest.getPath()){
+                    //POST 로 수정.
                     case "/user/create":
-                        if("GET".equals(tokens[0])){
-                            queryString = HttpRequestUtils.parseQueryString(params);
-                        }
-                        else if("POST".equals(tokens[0])){
-                            requestBody = IOUtils.readData(br,ContentLength);
-                            log.debug("params : {}",requestBody);
-                            queryString = HttpRequestUtils.parseQueryString(requestBody);
-                        }
-                        User user = new User(queryString.get("userId"),queryString.get("password"),queryString.get("name"),queryString.get("email"));
+                        User user = new User(httpRequest.getParameter("userId"),httpRequest.getParameter("password"),httpRequest.getParameter("name"),httpRequest.getParameter("email"));
 
                         //작성자가 만든 저장 하는 api
                         DataBase.addUser(user);
                         log.debug("User : {} , DataBaseSize : {}",user.toString(),DataBase.findAll().size());
-                        //요구사항 3.3 어디로 보내줄지
-                        //body 에 담아서 보내야 할듯? 땡!
-                        //header 내용 dos에 담기(body 내용을 따로 담을 필요도 없네)
                         response302Header(dos,"/index.html");
-
                         break;
 
                     /*
@@ -122,14 +67,11 @@ public class RequestHandler extends Thread {
                      * */
                     case "/user/login":
                         //POST : read body
-                        requestBody = IOUtils.readData(br,ContentLength);
-                        log.debug("/user/login - requestbody : {}",requestBody);
-                        queryString = HttpRequestUtils.parseQueryString(requestBody);
 
-                        User tempUser = DataBase.findUserById(queryString.get("userId"));//이렇게 넘겨 받는게 솔직히 엄청 위험해 보이긴 함..
+                        User tempUser = DataBase.findUserById(httpRequest.getParameter("userId"));//이렇게 넘겨 받는게 솔직히 엄청 위험해 보이긴 함..
                         String redirectUrl = "/user/login_failed.html";
                         //login 성공시 login.html
-                        if( tempUser != null && queryString.get("password").equals(tempUser.getPassword()) ){//있고비번 같으면
+                        if( tempUser != null && httpRequest.getParameter("password").equals(tempUser.getPassword()) ){//있고비번 같으면
                             redirectUrl="/index.html";
                             response302HeaderWithLoginSuccessHeader(dos,redirectUrl);
                         } else{
@@ -175,7 +117,7 @@ public class RequestHandler extends Thread {
                         break;
                     default:
 
-                        responseResource(out,requestPath);
+                        responseResource(out, httpRequest.getPath());
                         break;
                 }
             }

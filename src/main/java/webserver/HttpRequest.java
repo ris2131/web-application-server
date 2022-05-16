@@ -14,14 +14,11 @@ import java.util.Map;
 
 public class HttpRequest {
 
-    private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(HttpRequest.class);
 
-    String method;//get,post
-    String path;//url 어디로 보내야할지.
     Map<String, String> headerMap = new HashMap<>();//헤더
     Map<String, String> params = new HashMap<>();// 파라미터
-    //byte[] requestBody;//본문.
-
+    RequestLine requestLine;
     //생성자.
     public HttpRequest(InputStream in) throws IOException {
         BufferedReader br = new BufferedReader(new InputStreamReader(in,"UTF-8"));//utf-8 설정 여기서.
@@ -30,9 +27,10 @@ public class HttpRequest {
             log.debug("run - line null");
             return;
         }
-        //requestLine 으로 내용물 만들기(method, path, )
-        processRequestLine(line);
+        //requestLine 으로 내용물 만들기(method, path, param)
+        requestLine = new RequestLine(line);
 
+        
         //requestHeader 만들어 주기
         while(true){ //!"".equals(line)
             line = br.readLine();
@@ -42,40 +40,29 @@ public class HttpRequest {
             log.debug("run - requestHeader : {}",line);
         }
 
-        if("POST".equals(method)){
+        //? 로 인한  params 연결
+        params = requestLine.getParams();
+        //body 로 인한 params 연결
+        if(getMethod().isPost()){
             String body = IOUtils.readData(br, Integer.parseInt(headerMap.get("Content-Length")));
             Map<String,String>tempParams = HttpRequestUtils.parseQueryString(body);
             for(String tP : tempParams.keySet()){
                 params.put(tP,tempParams.get(tP));
             }
         }
+        log.debug("run - content-length: {}",headerMap.get("Content-Length"));
         log.debug("run - paramsALL   : {}", params);
 
-    }
-    private void processRequestLine(String requestLine){
-        log.debug("run - requestLine : {}", requestLine);//requestLine example: GET /index.html HTTP/1.1
-
-        //요청 라인 통해 위치 만들기(method, path , params 지정)
-        String[] tokens =  requestLine.split(" ");
-        method = tokens[0];
-        String url = tokens[1];
-        path = url;
-        if(url.contains("?")){
-            path = url.substring(0,url.indexOf("?"));
-            params = HttpRequestUtils.parseQueryString(url.substring(url.indexOf("?")+1));
-        }
-        log.debug("run - requestPath : {}", path);
-        log.debug("run - params      : {}", params);
     }
     String getHeader(String key){
         if(headerMap.containsKey(key)) return headerMap.get(key);
         else return null;
     }
-    String getMethod(){
-        return method;
+    HttpMethod getMethod(){
+        return requestLine.getMethod();
     }
     String getPath(){
-        return path;
+        return requestLine.getPath();
     }
     String getParameter(String key){
         return params.get(key);
