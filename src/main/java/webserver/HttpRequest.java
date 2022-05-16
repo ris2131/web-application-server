@@ -30,10 +30,33 @@ public class HttpRequest {
             log.debug("run - line null");
             return;
         }
-        log.debug("run - requestLine : {}", line);//requestLine example: GET /index.html HTTP/1.1
+        //requestLine 으로 내용물 만들기(method, path, )
+        processRequestLine(line);
+
+        //requestHeader 만들어 주기
+        while(true){ //!"".equals(line)
+            line = br.readLine();
+            if(line.equals(""))break;
+            HttpRequestUtils.Pair pair = HttpRequestUtils.parseHeader(line);
+            headerMap.put(pair.getKey(), pair.getValue());
+            log.debug("run - requestHeader : {}",line);
+        }
+
+        if("POST".equals(method)){
+            String body = IOUtils.readData(br, Integer.parseInt(headerMap.get("Content-Length")));
+            Map<String,String>tempParams = HttpRequestUtils.parseQueryString(body);
+            for(String tP : tempParams.keySet()){
+                params.put(tP,tempParams.get(tP));
+            }
+        }
+        log.debug("run - paramsALL   : {}", params);
+
+    }
+    private void processRequestLine(String requestLine){
+        log.debug("run - requestLine : {}", requestLine);//requestLine example: GET /index.html HTTP/1.1
 
         //요청 라인 통해 위치 만들기(method, path , params 지정)
-        String[] tokens =  line.split(" ");
+        String[] tokens =  requestLine.split(" ");
         method = tokens[0];
         String url = tokens[1];
         path = url;
@@ -43,31 +66,7 @@ public class HttpRequest {
         }
         log.debug("run - requestPath : {}", path);
         log.debug("run - params      : {}", params);
-
-        //requestHeader 만들어 주기
-        Map<String,String> cookieMap = new HashMap<>();//쿠키 여러개가 있을수 있어서 Map 으로 구성, ';' 로 떼는 Api 이용.//삭제?
-        int ContentLength=0;//삭제?
-        while(true){ //!"".equals(line)
-            line = br.readLine();
-            if(line.equals(""))break;
-            HttpRequestUtils.Pair pair = HttpRequestUtils.parseHeader(line);
-            headerMap.put(pair.getKey(), pair.getValue());
-            log.debug("run - requestHeader : {}",line);
-            if(headerMap.containsKey("Content-Length")){//삭제
-                ContentLength = Integer.parseInt(headerMap.get("Content-Length").trim());
-            }
-            //cookie 가 header에 있으면 parseCookie 해서 넣어주기.
-            if(headerMap.containsKey("Cookie")){//삭제
-                cookieMap = HttpRequestUtils.parseCookies(headerMap.get("Cookie"));
-            }
-        }
-
-        if("POST".equals(method)){
-            String body = IOUtils.readData(br, Integer.parseInt(headerMap.get("Content-Length")));
-            params = HttpRequestUtils.parseQueryString(body);
-        }
     }
-
     String getHeader(String key){
         if(headerMap.containsKey(key)) return headerMap.get(key);
         else return null;
