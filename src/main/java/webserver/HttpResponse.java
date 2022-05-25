@@ -54,23 +54,7 @@ public class HttpResponse {
             log.error(e.getMessage());
         }
     }
-    private void response200Header(int lengthOfBodyContent) {
-        try {
-            dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            processHeaders();
-            dos.writeBytes("\r\n");
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
-    private void responseBody(byte[] body) {
-        try {
-            dos.write(body, 0, body.length);
-            dos.flush();
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
+
     //forwardBody 필요한지 모르겠다.. 안쓰이는거 같은데..
     //아아... 테이블 바로 forward 띄울때 이거 쓰이겠다!
     //url 로 forward 하는게 아니라 직접 html body 를 찍어주는 방식!
@@ -88,7 +72,24 @@ public class HttpResponse {
             headers.put(key,val);
         }
     }
-   public void processHeaders(){
+    private void response200Header(int lengthOfBodyContent) {
+        try {
+            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            processHeaders();
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+    private void responseBody(byte[] body) {
+        try {
+            dos.write(body, 0, body.length);
+            dos.flush();
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+   private void processHeaders(){
        try {
            Set<String> keys = headers.keySet();
             for(String key:keys){
