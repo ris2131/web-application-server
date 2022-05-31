@@ -17,8 +17,8 @@ public class ListUserController extends AbstractController{
         super.doGet(httpRequest, httpResponse);
         String redirectUrl = "/user/login_failed.html";
         String logined="false";//쿠키 자체가 없을수도 있어서 그떄도 false 처리 해야해서 이렇게 했음.
-        if(httpRequest.getCookie("logined") !=null){
-            logined=httpRequest.getCookie("logined");
+        if(httpRequest.getCookies().getCookie("logined") !=null){
+            logined = httpRequest.getCookies().getCookie("logined");
         }
         if("true".equals(logined)){
             redirectUrl = "/user/list";//스위치문 지역변수 헷갈리네

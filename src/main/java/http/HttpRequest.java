@@ -18,9 +18,7 @@ public class HttpRequest {
 
     Map<String, String> headerMap = new HashMap<>();//헤더
     Map<String, String> params = new HashMap<>();// 파라미터
-    Map<String,String> cookieMap = new HashMap<>();//쿠키 여러개가 있을수 있어서 Map 으로 구성, ';' 로 떼는 Api 이용.
-
-
+    //Map<String,String> cookieMap = new HashMap<>();//쿠키 여러개가 있을수 있어서 Map 으로 구성, ';' 로 떼는 Api 이용.
     RequestLine requestLine;
     //생성자.
     public HttpRequest(InputStream in) throws IOException {
@@ -42,9 +40,7 @@ public class HttpRequest {
             headerMap.put(pair.getKey(), pair.getValue());
             log.debug("run - requestHeader : {}",line);
         }
-        if(getHeader("Cookie" ) != null ){
-            cookieMap = HttpRequestUtils.parseCookies(getHeader("Cookie"));
-        }
+
 
         //? 로 인한  params 연결
         params = requestLine.getParams();
@@ -73,10 +69,10 @@ public class HttpRequest {
     public String getParameter(String key){
         return params.get(key);
     }
-    public String getCookie(String key) {
-        return cookieMap.get(key);
+    public HttpCookie getCookies() {
+        return new HttpCookie(getHeader("Cookie"));
     }
     public String getSessionId(){
-        return cookieMap.get("JSESSIONID");
+        return getCookies().getCookie("JSESSIONID");
     }
 }
