@@ -1,13 +1,12 @@
 package webserver;
 
+import http.HttpResponse;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
-
-import static org.junit.Assert.*;
 
 public class HttpResponseTest {
     private String testDirectory= "./src/test/resources";

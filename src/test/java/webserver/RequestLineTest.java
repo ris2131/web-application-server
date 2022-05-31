@@ -1,5 +1,7 @@
 package webserver;
 
+import http.HttpMethod;
+import http.RequestLine;
 import org.junit.Test;
 
 import java.util.Map;

@@ -1,4 +1,4 @@
-package webserver;
+package http;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,20 +60,23 @@ public class HttpRequest {
         log.debug("run - paramsALL   : {}", params);
 
     }
-    String getHeader(String key){
+    public String getHeader(String key){
         if(headerMap.containsKey(key)) return headerMap.get(key);
         else return null;
     }
-    HttpMethod getMethod(){
+    public HttpMethod getMethod(){
         return requestLine.getMethod();
     }
-    String getPath(){
+    public String getPath(){
         return requestLine.getPath();
     }
-    String getParameter(String key){
+    public String getParameter(String key){
         return params.get(key);
     }
-    String getCookie(String key) {
+    public String getCookie(String key) {
         return cookieMap.get(key);
+    }
+    public String getSessionId(){
+        return cookieMap.get("JSESSIONID");
     }
 }
